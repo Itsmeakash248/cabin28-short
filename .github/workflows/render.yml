@@ -1,0 +1,116 @@
+name: Render Cabin 28 Short
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Draft render (540x960 upscaled, faster)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  render-slice:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - index: 0
+            start: "0"
+            end: "16"
+          - index: 1
+            start: "16"
+            end: "32"
+          - index: 2
+            start: "32"
+            end: "48"
+          - index: 3
+            start: "48"
+            end: "-1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies (ffmpeg, xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb
+
+      - name: Render slice ${{ matrix.index }} (${{ matrix.start }}s to ${{ matrix.end }}s)
+        run: |
+          mkdir -p renders
+          DRAFT_FLAG=""
+          if [ "${{ github.event.inputs.draft }}" = "true" ]; then
+            DRAFT_FLAG="--draft"
+          fi
+          xvfb-run -a node tools/capture.mjs video renders/slice_${{ matrix.index }}.mp4 ${{ matrix.start }} ${{ matrix.end }} 2 $DRAFT_FLAG
+
+      - name: Upload slice artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slice-${{ matrix.index }}
+          path: renders/slice_${{ matrix.index }}.mp4
+          retention-days: 2
+
+  combine:
+    needs: render-slice
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Download all slice artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: slices
+
+      - name: Combine slices and mux audio
+        run: |
+          mkdir -p renders
+          cat << 'EOF' > list.txt
+          file 'slices/slice-0/slice_0.mp4'
+          file 'slices/slice-1/slice_1.mp4'
+          file 'slices/slice-2/slice_2.mp4'
+          file 'slices/slice-3/slice_3.mp4'
+          EOF
+          cat list.txt
+
+          ffmpeg -y -f concat -safe 0 -i list.txt -c copy renders/video_concat.mp4
+
+          # Mux with master soundtrack
+          ffmpeg -y -i renders/video_concat.mp4 -i data/mix.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 320k -shortest -movflags +faststart renders/cabin28_9x16.mp4
+
+          ls -lh renders/cabin28_9x16.mp4
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 renders/cabin28_9x16.mp4
+
+      - name: Upload full video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cabin28-final-video
+          path: renders/cabin28_9x16.mp4
+          retention-days: 14
+
+      - name: Create GitHub Release with final MP4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v$(date +'%Y%m%d-%H%M%S')"
+          gh release create "$TAG" renders/cabin28_9x16.mp4 \
+            --title "Cabin 28 Keddie Murders - 9:16 Short" \
+            --notes "Generated Red Ghost faceless video. 1080x1920 30fps with dark ambient mix and Kokoro narration."

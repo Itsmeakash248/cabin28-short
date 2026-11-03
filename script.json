@@ -1,0 +1,21 @@
+{
+ "title": "Cabin 28",
+ "narrator": { "voice": "am_michael", "speed": 1.04 },
+ "lines": [
+  { "text": "In nineteen eighty-one, a family rented Cabin twenty-eight in the California pines.", "gap": 0.3 },
+  { "text": "April eleventh was pitch black and completely silent.", "gap": 0.35 },
+  { "text": "Around midnight, the outside phone wire was cut cleanly in two.", "gap": 0.4 },
+  { "text": "Someone entered through the front door without breaking a single lock.", "gap": 0.4 },
+  { "text": "The living room lights were turned off, and the curtains drawn shut.", "gap": 0.5 },
+  { "text": "In the morning, the oldest daughter walked home from next door.", "gap": 0.35 },
+  { "text": "She opened the door to a scene of total devastation.", "gap": 0.7 },
+  { "text": "Three victims lay motionless on the wooden floor.", "gap": 0.6 },
+  { "text": "Yet in the back bedroom, three young boys were left unharmed.", "gap": 0.5 },
+  { "text": "They had heard muffled whispers in the dark, but saw only shadows.", "gap": 0.6 },
+  { "text": "Then police noticed twelve-year-old Tina was missing.", "gap": 0.65 },
+  { "text": "Three years later, her remains were discovered thirty miles away in the forest.", "gap": 0.6 },
+  { "text": "Over four decades later, Cabin twenty-eight has been demolished.", "gap": 0.45 },
+  { "text": "The investigation remains officially unsolved.", "gap": 0.6 },
+  { "text": "And the intruders in the dark were never caught.", "gap": 1.5 }
+ ]
+}
