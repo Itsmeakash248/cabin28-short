@@ -41,10 +41,11 @@ function serve() {
 // ---------- chrome worker ----------
 // draft flag available at module level
 const _DRAFT = process.argv.includes('--draft');
+const _SCALE = _DRAFT ? 0.5 : (process.env.SCALE ? parseFloat(process.env.SCALE) : 1.0);
 async function openWorker(port) {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'op-chrome-'));
-  // In draft mode use 540×960 (¼ the pixels → ~4× faster SwiftShader render)
-  const winSize = _DRAFT ? '540,960' : '1080,1920';
+  const winW = Math.round(1080 * _SCALE), winH = Math.round(1920 * _SCALE);
+  const winSize = `${winW},${winH}`;
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${prof}`, '--no-first-run', '--no-default-browser-check',
     '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
     '--hide-scrollbars', `--window-size=${winSize}`, '--ignore-gpu-blocklist', '--enable-gpu-rasterization', ...(process.platform === 'darwin' ? ['--use-angle=metal'] : []), '--autoplay-policy=no-user-gesture-required',
@@ -52,7 +53,7 @@ async function openWorker(port) {
   let target, dbg;
   for (let i = 0; i < 150 && !dbg; i++) { try { dbg = fs.readFileSync(path.join(prof, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim(); } catch { await sleep(100); } }
   for (let i = 0; i < 150; i++) {
-    try { const r = await fetch(`http://127.0.0.1:${dbg}/json/new?http://127.0.0.1:${port}/index.html?capture=1${process.env.QS || ""}`, { method: 'PUT' }); target = await r.json(); break; } catch { await sleep(150); }
+    try { const r = await fetch(`http://127.0.0.1:${dbg}/json/new?http://127.0.0.1:${port}/index.html?capture=1&scale=${_SCALE}${process.env.QS || ""}`, { method: 'PUT' }); target = await r.json(); break; } catch { await sleep(150); }
   }
   if (!target) throw new Error('chrome did not start');
   const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -158,8 +159,8 @@ try {
       const s = f0 + k * per, e = Math.min(f1, s + per); if (s >= e) return;
       const w = await openWorker(port);
       const seg = path.join(tmp, `c${String(k).padStart(3, '0')}.mp4`);
-      // draft: Chrome rendered at 540×960 → upscale to 1080×1920 for playback at proper resolution
-      const vf = draft ? 'scale=1080:1920:flags=lanczos,format=yuv420p' : 'format=yuv420p';
+      // scale < 1.0: Chrome rendered at lower resolution → upscale back to 1080×1920
+      const vf = _SCALE < 1.0 ? 'scale=1080:1920:flags=lanczos,format=yuv420p' : 'format=yuv420p';
       const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-', '-vf', vf, '-c:v', 'libx264', '-preset', draft ? 'veryfast' : 'medium', '-crf', draft ? '23' : '15', '-g', '30', '-bf', '0', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-r', String(FPS), seg], { stdio: ['pipe', 'inherit', 'inherit'] });
       for (let f = s; f < e; f++) {
         const buf = jpg(await w.evalv(`OP.frame(${f}, ${draft ? 0.8 : 0.95})`));

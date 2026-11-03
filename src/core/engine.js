@@ -7,8 +7,10 @@ import { OutputPass } from '../../vendor/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from '../../vendor/addons/postprocessing/ShaderPass.js';
 
 export const LAND = typeof location !== 'undefined' && location.search.includes('land'); // 16:9 YouTube cut
-export const W = LAND ? 1920 : 1080, H = LAND ? 1080 : 1920, FPS = 30;
-export const UI = LAND ? 0.72 : 1; // overlay scale
+const _p = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+export const SCALE = _p && _p.get('scale') ? parseFloat(_p.get('scale')) : 1.0;
+export const W = Math.round((LAND ? 1920 : 1080) * SCALE), H = Math.round((LAND ? 1080 : 1920) * SCALE), FPS = 30;
+export const UI = (LAND ? 0.72 : 1) * SCALE; // overlay scale
 
 const GradeShader = {
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVig: { value: 0.55 }, uGrain: { value: 0.022 }, uRes: { value: new THREE.Vector2(W, H) }, uFade: { value: 1 },

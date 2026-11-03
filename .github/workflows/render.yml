@@ -6,9 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       draft:
-        description: 'Draft render (540x960 upscaled, faster)'
+        description: 'Draft render (540x960 upscaled, 4x faster)'
         type: boolean
         default: false
+      scale:
+        description: 'Custom resolution scale (1.0 = native 1080p, 0.75 = fast 810p, 0.5 = draft)'
+        type: string
+        default: '1.0'
 
 permissions:
   contents: write
@@ -22,15 +26,27 @@ jobs:
         include:
           - index: 0
             start: "0"
-            end: "16"
+            end: "8"
           - index: 1
-            start: "16"
-            end: "32"
+            start: "8"
+            end: "16"
           - index: 2
-            start: "32"
-            end: "48"
+            start: "16"
+            end: "24"
           - index: 3
+            start: "24"
+            end: "32"
+          - index: 4
+            start: "32"
+            end: "40"
+          - index: 5
+            start: "40"
+            end: "48"
+          - index: 6
             start: "48"
+            end: "56"
+          - index: 7
+            start: "56"
             end: "-1"
 
     steps:
@@ -48,6 +64,8 @@ jobs:
           sudo apt-get install -y ffmpeg xvfb
 
       - name: Render slice ${{ matrix.index }} (${{ matrix.start }}s to ${{ matrix.end }}s)
+        env:
+          SCALE: ${{ github.event.inputs.scale || '1.0' }}
         run: |
           mkdir -p renders
           DRAFT_FLAG=""
@@ -83,12 +101,11 @@ jobs:
       - name: Combine slices and mux audio
         run: |
           mkdir -p renders
-          cat << 'EOF' > list.txt
-          file 'slices/slice-0/slice_0.mp4'
-          file 'slices/slice-1/slice_1.mp4'
-          file 'slices/slice-2/slice_2.mp4'
-          file 'slices/slice-3/slice_3.mp4'
-          EOF
+          rm -f list.txt
+          find slices -type f -name 'slice_*.mp4' | sort -V | while read -r f; do
+            echo "file '$PWD/$f'" >> list.txt
+          done
+          echo "=== Slices to concatenate ==="
           cat list.txt
 
           ffmpeg -y -f concat -safe 0 -i list.txt -c copy renders/video_concat.mp4
